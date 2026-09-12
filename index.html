@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d1b16" />
+  <title>GIKI Prayer Times</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <style>
+    :root{
+      --bg:#0d1b16; --card:#13261e; --card2:#0f2019;
+      --accent:#4fd1a5; --accent-dim:#2f8f70;
+      --gold:#e8c069; --text:#eaf5ef; --muted:#8fae9f; --line:#1f3a2e;
+    }
+    *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+    html,body{margin:0; padding:0}
+    body{
+      background:
+        radial-gradient(1200px 600px at 50% -10%, #16342700, #0000),
+        linear-gradient(180deg,#0f2019,#0b1712 60%);
+      color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+      min-height:100vh; padding:max(16px,env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+    }
+    .wrap{max-width:520px; margin:0 auto}
+    header{text-align:center; padding:8px 0 4px}
+    header h1{font-size:1.05rem; margin:0; font-weight:600; letter-spacing:.3px}
+    header .date{color:var(--muted); font-size:.82rem; margin-top:2px}
+    .kaaba{font-size:1.6rem}
+
+    .next{
+      margin:18px 0; padding:22px 18px; border-radius:20px;
+      background:linear-gradient(160deg,#173a2c,#0f261d);
+      border:1px solid var(--line); text-align:center; position:relative; overflow:hidden;
+    }
+    .next::after{content:"🕌"; position:absolute; right:-8px; bottom:-14px; font-size:5rem; opacity:.06}
+    .next .lbl{color:var(--accent); font-size:.72rem; letter-spacing:.18em; text-transform:uppercase; font-weight:700}
+    .next .name{font-size:2rem; font-weight:700; margin:6px 0 2px}
+    .next .at{color:var(--muted); font-size:.9rem}
+    .next .count{font-size:2.6rem; font-weight:700; font-variant-numeric:tabular-nums; margin-top:10px; color:var(--gold); letter-spacing:1px}
+    .next .count.small{font-size:1.6rem}
+
+    .list{display:flex; flex-direction:column; gap:8px}
+    .row{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 16px; background:var(--card); border:1px solid var(--line); border-radius:14px;
+    }
+    .row.active{border-color:var(--accent); background:var(--card2); box-shadow:0 0 0 1px var(--accent) inset}
+    .row.passed{opacity:.5}
+    .row .n{display:flex; align-items:center; gap:10px; font-weight:600}
+    .row .n .ic{width:26px; text-align:center}
+    .row .t{font-variant-numeric:tabular-nums; font-weight:600}
+    .row .t small{color:var(--muted); font-weight:500; font-size:.7rem; display:block; text-align:right}
+
+    .bar{display:flex; gap:10px; margin:16px 0 6px}
+    button{
+      flex:1; padding:12px; border-radius:12px; border:1px solid var(--line);
+      background:var(--card); color:var(--text); font-size:.9rem; font-weight:600; cursor:pointer;
+    }
+    button.primary{background:var(--accent-dim); border-color:var(--accent); color:#04140d}
+    button:active{transform:scale(.98)}
+
+    .panel{margin-top:12px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; display:none}
+    .panel.open{display:block}
+    .panel h3{margin:0 0 10px; font-size:.85rem; color:var(--accent); letter-spacing:.08em; text-transform:uppercase}
+    .field{display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line)}
+    .field:last-child{border-bottom:0}
+    .field label{font-size:.9rem; color:var(--muted)}
+    .field input{
+      background:var(--card2); border:1px solid var(--line); color:var(--text);
+      border-radius:8px; padding:8px 10px; width:120px; text-align:right; font-size:.9rem;
+    }
+    .field input[type=number]{width:70px}
+    .status{font-size:.78rem; color:var(--muted); text-align:center; margin-top:10px; min-height:1em}
+    .foot{text-align:center; color:var(--muted); font-size:.72rem; margin-top:16px; line-height:1.5}
+    .switch{position:relative; width:46px; height:26px}
+    .switch input{opacity:0; width:0; height:0}
+    .slider{position:absolute; inset:0; background:var(--line); border-radius:26px; transition:.2s}
+    .slider:before{content:""; position:absolute; height:20px; width:20px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s}
+    .switch input:checked + .slider{background:var(--accent-dim)}
+    .switch input:checked + .slider:before{transform:translateX(20px)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="kaaba">🕋</div>
+      <h1 id="mosque">Students' Mosque GIKI</h1>
+      <div class="date" id="date">—</div>
+    </header>
+
+    <section class="next">
+      <div class="lbl">Next Prayer</div>
+      <div class="name" id="nextName">—</div>
+      <div class="at" id="nextAt">—</div>
+      <div class="count" id="count">--:--:--</div>
+    </section>
+
+    <div class="list" id="list"></div>
+
+    <div class="bar">
+      <button id="notifyBtn" class="primary">🔔 Enable reminders</button>
+      <button id="settingsBtn">⚙️ Settings</button>
+    </div>
+
+    <div class="panel" id="panel">
+      <h3>Jamaat Timings (fixed board)</h3>
+      <div class="field"><label>Fajr</label><input id="f_fajr" placeholder="5:20 AM"></div>
+      <div class="field"><label>Dhuhr</label><input id="f_dhuhr" placeholder="1:45 PM"></div>
+      <div class="field"><label>Asr</label><input id="f_asr" placeholder="5:00 PM"></div>
+      <div class="field"><label>Isha</label><input id="f_isha" placeholder="8:15 PM"></div>
+      <div class="field"><label>Jumu'ah (Fri)</label><input id="f_friday" placeholder="1:30 PM"></div>
+      <h3 style="margin-top:14px">Maghrib (auto from sunset)</h3>
+      <div class="field"><label>Offset from sunset (min)</label><input id="f_moffset" type="number" placeholder="2"></div>
+      <div class="field"><label>Fallback if offline</label><input id="f_mfallback" placeholder="6:23 PM"></div>
+      <h3 style="margin-top:14px">Reminders</h3>
+      <div class="field"><label>Notify at jamaat time</label>
+        <span class="switch"><input type="checkbox" id="n_at"><span class="slider"></span></span></div>
+      <div class="field"><label>Pre-reminder (min before)</label><input id="n_before" type="number" placeholder="10"></div>
+      <div class="bar" style="margin-bottom:0">
+        <button id="saveBtn" class="primary">Save</button>
+        <button id="testBtn">Test notification</button>
+      </div>
+    </div>
+
+    <div class="status" id="status"></div>
+    <div class="foot">
+      Jamaat times are fixed by the mosque. Maghrib updates daily from sunset
+      (AlAdhan, GIKI 34.06°N 72.64°E). Add to Home Screen for the full experience.
+    </div>
+  </div>
+
+  <script>
+  const LAT=34.0645, LON=72.6412, METHOD=1; // Univ. of Islamic Sciences, Karachi
+  const DEFAULTS = {
+    fajr:"5:20 AM", dhuhr:"1:45 PM", asr:"5:00 PM", isha:"8:15 PM", friday:"1:30 PM",
+    moffset:2, mfallback:"6:23 PM", n_at:true, n_before:10
+  };
+  const $ = id => document.getElementById(id);
+  const cfg = () => Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem("giki_cfg")||"{}"));
+  const saveCfg = c => localStorage.setItem("giki_cfg", JSON.stringify(c));
+
+  // ---- time parsing ----
+  function parseTime(str, baseDate){
+    // handles "5:20 AM", "5:00.pm", "5:00 p.m.", "18:21"
+    if(!str) return null;
+    str = String(str).trim().toLowerCase();
+    const ap = /p\.?m/.test(str) ? "pm" : /a\.?m/.test(str) ? "am" : null;
+    const digits = str.replace(/[^0-9:.]/g,"").replace(/\./g,":");
+    let m = digits.match(/(\d{1,2}):(\d{2})/) || digits.match(/(\d{1,2})/);
+    if(!m) return null;
+    let h=+m[1], min=+(m[2]||0);
+    if(ap==="pm" && h<12) h+=12;
+    if(ap==="am" && h===12) h=0;
+    const d = new Date(baseDate); d.setHours(h,min,0,0); return d;
+  }
+  const fmt = d => d.toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
+  const two = n => String(n).padStart(2,"0");
+
+  // ---- build today's schedule ----
+  let maghribToday = null; // Date
+
+  // Pull the mosque's official fixed board via our serverless proxy (auto-sync).
+  // Falls back silently to saved/baked-in times if unreachable.
+  async function syncBoard(){
+    try{
+      const r = await fetch("/api/times", {cache:"no-store"});
+      const j = await r.json();
+      if(!j || !j.ok || !j.prayerTimes) return false;
+      const p = j.prayerTimes, c = cfg();
+      const norm = s => { const d=parseTime(s,new Date()); return d?fmt(d):s; }; // "5:00.pm" -> "5:00 PM"
+      if(p.fajr)   c.fajr   = norm(p.fajr);
+      if(p.dhuhr)  c.dhuhr  = norm(p.dhuhr);
+      if(p.asr)    c.asr    = norm(p.asr);
+      if(p.isha)   c.isha   = norm(p.isha);
+      if(p.friday) c.friday = norm(p.friday);
+      saveCfg(c);
+      if(j.mosqueName) $("mosque").textContent = j.mosqueName;
+      return true;
+    }catch(e){ return false; }
+  }
+
+  async function fetchMaghrib(date){
+    const dd=two(date.getDate()), mm=two(date.getMonth()+1), yy=date.getFullYear();
+    const url=`https://api.aladhan.com/v1/timings/${dd}-${mm}-${yy}?latitude=${LAT}&longitude=${LON}&method=${METHOD}`;
+    const r = await fetch(url);
+    const j = await r.json();
+    const sunset = parseTime(j.data.timings.Sunset, date);
+    const off = +cfg().moffset || 0;
+    return new Date(sunset.getTime() + off*60000);
+  }
+
+  function schedule(date){
+    const c = cfg();
+    const isFri = date.getDay()===5;
+    const rows = [
+      {key:"fajr",   name:"Fajr",    ic:"🌅", time:parseTime(c.fajr,date)},
+      {key:"dhuhr",  name:isFri?"Jumu'ah":"Dhuhr", ic:"🌞", time:parseTime(isFri?c.friday:c.dhuhr,date)},
+      {key:"asr",    name:"Asr",     ic:"🌤️", time:parseTime(c.asr,date)},
+      {key:"maghrib",name:"Maghrib", ic:"🌆", time:maghribToday||parseTime(c.mfallback,date)},
+      {key:"isha",   name:"Isha",    ic:"🌙", time:parseTime(c.isha,date)},
+    ];
+    return rows.filter(r=>r.time);
+  }
+
+  function nextPrayer(now){
+    let rows = schedule(now).map(r=>({...r}));
+    for(const r of rows){ if(r.time > now) return r; }
+    // all passed → tomorrow's Fajr
+    const t = new Date(now); t.setDate(t.getDate()+1);
+    const f = schedule(t).find(r=>r.key==="fajr");
+    return f ? {...f, name:"Fajr", tomorrow:true} : null;
+  }
+
+  // ---- render ----
+  function render(){
+    const now=new Date();
+    $("date").textContent = now.toLocaleDateString([], {weekday:"long", year:"numeric", month:"long", day:"numeric"});
+    const rows = schedule(now);
+    const nxt = nextPrayer(now);
+    const listEl = $("list"); listEl.innerHTML="";
+    for(const r of rows){
+      const active = nxt && !nxt.tomorrow && r.key===nxt.key;
+      const passed = r.time < now && !active;
+      const div=document.createElement("div");
+      div.className="row"+(active?" active":"")+(passed?" passed":"");
+      div.innerHTML=`<div class="n"><span class="ic">${r.ic}</span>${r.name}</div>
+        <div class="t">${fmt(r.time)}${r.key==="maghrib"?"<small>"+(maghribToday?"live":"est")+"</small>":""}</div>`;
+      listEl.appendChild(div);
+    }
+    if(nxt){
+      $("nextName").textContent = nxt.name;
+      $("nextAt").textContent = (nxt.tomorrow?"Tomorrow · ":"")+fmt(nxt.time);
+      const diff = nxt.time - now;
+      const h=Math.floor(diff/3600000), m=Math.floor(diff%3600000/60000), s=Math.floor(diff%60000/1000);
+      const el=$("count");
+      el.textContent = (h>0? h+":" : "")+two(m)+":"+two(s);
+      el.className = "count"+(h>=1?"":" ");
+    }
+  }
+
+  // ---- notifications (Notification Triggers API + fallback) ----
+  let swReg=null;
+  async function initSW(){
+    if("serviceWorker" in navigator){
+      try{ swReg = await navigator.serviceWorker.register("sw.js"); }catch(e){}
+    }
+  }
+  async function scheduleNotifications(){
+    if(Notification.permission!=="granted") return;
+    const c=cfg();
+    const events=[];
+    for(let d=0; d<2; d++){
+      const day=new Date(); day.setDate(day.getDate()+d);
+      if(d===1){ // recompute maghrib for tomorrow best-effort
+        try{ const mt=await fetchMaghrib(day); scheduleFor(day, mt, c, events); continue; }catch(e){}
+      }
+      scheduleFor(day, maghribToday, c, events);
+    }
+    const now=Date.now();
+    const future=events.filter(e=>e.at>now+2000).sort((a,b)=>a.at-b.at);
+
+    // Preferred: Notification Triggers (fires when app closed) via SW
+    if(swReg && "showTrigger" in Notification.prototype){
+      // clear old scheduled ones
+      const existing = await swReg.getNotifications({includeTriggered:false}).catch(()=>[]);
+      existing.forEach(n=>{ if(n.tag&&n.tag.startsWith("giki-")) n.close(); });
+      for(const e of future){
+        try{
+          await swReg.showNotification(e.title, {
+            body:e.body, tag:e.tag, icon:"icon.svg", badge:"icon.svg",
+            showTrigger:new TimestampTrigger(e.at)
+          });
+        }catch(err){}
+      }
+      setStatus(`${future.length} reminders scheduled (works when closed).`);
+    } else {
+      // Fallback: setTimeout while app open
+      clearFallback();
+      for(const e of future.slice(0,10)){
+        const t=setTimeout(()=>{ notify(e.title, e.body); }, e.at-Date.now());
+        fallbackTimers.push(t);
+      }
+      setStatus(`${future.length} reminders set (device must keep app open).`);
+    }
+  }
+  function scheduleFor(day, maghrib, c, out){
+    const isFri=day.getDay()===5;
+    const items=[
+      ["Fajr", parseTime(c.fajr,day)],
+      [isFri?"Jumu'ah":"Dhuhr", parseTime(isFri?c.friday:c.dhuhr,day)],
+      ["Asr", parseTime(c.asr,day)],
+      ["Maghrib", maghrib && sameDay(maghrib,day)?maghrib:parseTime(c.mfallback,day)],
+      ["Isha", parseTime(c.isha,day)],
+    ];
+    for(const [name,time] of items){
+      if(!time) continue;
+      if(c.n_before>0) out.push({at:time.getTime()-c.n_before*60000, title:`${name} in ${c.n_before} min`, body:`Jamaat at ${fmt(time)} · Students' Mosque GIKI`, tag:`giki-${name}-pre-${time.getTime()}`});
+      if(c.n_at) out.push({at:time.getTime(), title:`${name} — Jamaat time`, body:`It's time for ${name} at Students' Mosque GIKI 🕌`, tag:`giki-${name}-at-${time.getTime()}`});
+    }
+  }
+  const sameDay=(a,b)=>a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
+  let fallbackTimers=[];
+  function clearFallback(){ fallbackTimers.forEach(clearTimeout); fallbackTimers=[]; }
+  function notify(title,body){
+    if(swReg) swReg.showNotification(title,{body,icon:"icon.svg",badge:"icon.svg"});
+    else new Notification(title,{body,icon:"icon.svg"});
+  }
+  function setStatus(t){ $("status").textContent=t; }
+
+  // ---- settings panel ----
+  function loadForm(){
+    const c=cfg();
+    f_fajr.value=c.fajr; f_dhuhr.value=c.dhuhr; f_asr.value=c.asr; f_isha.value=c.isha;
+    f_friday.value=c.friday; f_moffset.value=c.moffset; f_mfallback.value=c.mfallback;
+    n_at.checked=c.n_at; n_before.value=c.n_before;
+  }
+  $("settingsBtn").onclick=()=>{ $("panel").classList.toggle("open"); loadForm(); };
+  $("saveBtn").onclick=async()=>{
+    const c=cfg();
+    c.fajr=f_fajr.value||c.fajr; c.dhuhr=f_dhuhr.value||c.dhuhr; c.asr=f_asr.value||c.asr;
+    c.isha=f_isha.value||c.isha; c.friday=f_friday.value||c.friday;
+    c.moffset=+f_moffset.value||0; c.mfallback=f_mfallback.value||c.mfallback;
+    c.n_at=n_at.checked; c.n_before=+n_before.value||0;
+    saveCfg(c);
+    try{ maghribToday=await fetchMaghrib(new Date()); }catch(e){}
+    render(); await scheduleNotifications();
+    $("panel").classList.remove("open"); setStatus("Saved ✓");
+  };
+  $("testBtn").onclick=async()=>{
+    const ok=await ensurePermission(); if(ok) notify("Test — GIKI Prayer Times","Reminders are working 🔔");
+  };
+
+  async function ensurePermission(){
+    if(!("Notification" in window)){ setStatus("This browser has no notifications."); return false; }
+    if(Notification.permission==="granted") return true;
+    const p=await Notification.requestPermission();
+    return p==="granted";
+  }
+  $("notifyBtn").onclick=async()=>{
+    const ok=await ensurePermission();
+    if(ok){ $("notifyBtn").textContent="🔔 Reminders on"; await scheduleNotifications(); }
+    else setStatus("Notifications blocked — enable them in browser settings.");
+  };
+
+  // ---- boot ----
+  async function boot(){
+    await initSW();
+    await syncBoard();          // auto-pull mosque's official fixed times
+    loadForm();
+    if(Notification && Notification.permission==="granted") $("notifyBtn").textContent="🔔 Reminders on";
+    try{ maghribToday=await fetchMaghrib(new Date()); }catch(e){ setStatus("Offline: using fallback Maghrib."); }
+    render();
+    if(Notification && Notification.permission==="granted") scheduleNotifications();
+    setInterval(render,1000);
+    // hourly: refresh Maghrib + re-sync the board in case the mosque updated it
+    setInterval(async()=>{
+      try{ maghribToday=await fetchMaghrib(new Date()); }catch(e){}
+      const changed = await syncBoard();
+      render();
+      if(changed && Notification && Notification.permission==="granted") scheduleNotifications();
+    }, 3600000);
+  }
+  boot();
+  </script>
+</body>
+</html>
