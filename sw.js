@@ -1,5 +1,5 @@
 // GIKI Prayer Times — service worker
-const CACHE = "giki-prayer-v2";
+const CACHE = "giki-prayer-v3";
 const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg", "./icon-maskable.svg"];
 
 self.addEventListener("install", e => {
@@ -39,6 +39,7 @@ self.addEventListener("fetch", e => {
 
 self.addEventListener("notificationclick", e => {
   e.notification.close();
+  if (e.action === "dismiss") return;   // just close the alarm
   e.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
       for (const c of list) { if ("focus" in c) return c.focus(); }

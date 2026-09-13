@@ -241,6 +241,16 @@
   }
 
   // ---- notifications (Notification Triggers API + fallback) ----
+  // Alarm-style options: persistent, strong vibration, action button.
+  const VIBRATE = [700,300,700,300,700,300,700,300,700];
+  const alarmOpts = extra => Object.assign({
+    icon:"icon.svg", badge:"icon.svg",
+    requireInteraction:true,   // stays until dismissed, doesn't auto-close
+    renotify:true,             // re-alert even if a tagged one exists
+    vibrate:VIBRATE,
+    silent:false,
+    actions:[{action:"dismiss", title:"Dismiss"}]
+  }, extra);
   let swReg=null;
   async function initSW(){
     if("serviceWorker" in navigator){
@@ -268,10 +278,10 @@
       existing.forEach(n=>{ if(n.tag&&n.tag.startsWith("giki-")) n.close(); });
       for(const e of future){
         try{
-          await swReg.showNotification(e.title, {
-            body:e.body, tag:e.tag, icon:"icon.svg", badge:"icon.svg",
+          await swReg.showNotification(e.title, alarmOpts({
+            body:e.body, tag:e.tag,
             showTrigger:new TimestampTrigger(e.at)
-          });
+          }));
         }catch(err){}
       }
       setStatus(`${future.length} reminders scheduled (works when closed).`);
@@ -304,8 +314,9 @@
   let fallbackTimers=[];
   function clearFallback(){ fallbackTimers.forEach(clearTimeout); fallbackTimers=[]; }
   function notify(title,body){
-    if(swReg) swReg.showNotification(title,{body,icon:"icon.svg",badge:"icon.svg"});
-    else new Notification(title,{body,icon:"icon.svg"});
+    const tag = "giki-now-"+Date.now();
+    if(swReg) swReg.showNotification(title, alarmOpts({body, tag}));
+    else new Notification(title, {body, icon:"icon.svg", requireInteraction:true, vibrate:VIBRATE});
   }
   function setStatus(t){ $("status").textContent=t; }
 
